@@ -1,13 +1,17 @@
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
-const cors = require("cors"); // Import cors
+const cors = require("cors");
 
 // Initialize Express app
 const app = express();
 
 // Enable CORS for all routes
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000', // Allow requests from your local frontend
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
+  allowedHeaders: ['Content-Type', 'Authorization'] // Allowed headers
+}));
 
 // Set up Multer for file storage
 const storage = multer.diskStorage({
