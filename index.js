@@ -1,40 +1,58 @@
 const express = require("express");
-const multer = require("multer");
+const fs = require("fs");
 const path = require("path");
 const cors = require("cors");
-
-// Initialize Express app
+const multer = require("multer");
 const app = express();
 
 // Enable CORS for all routes
-app.use(cors({
-  origin: 'http://localhost:3000', // Allow requests from your local frontend
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
-  allowedHeaders: ['Content-Type', 'Authorization'] // Allowed headers
-}));
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
-// Set up Multer for file storage
-const storage = multer.diskStorage({
-  destination: "./uploads",
-  filename: (req, file, cb) => {
-    cb(null, file.originalname);
-  },
-});
-
+// Set up Multer for handling chunks
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
+
+app.post("/upload", upload.single("file"), (req, res) => {
+  const { chunkIndex, totalChunks, fileName } = req.body;
+  const chunk = req.file.buffer;
+  const chunkPath = path.join(__dirname, "uploads", `${fileName}.part${chunkIndex}`);
+
+  // Save the chunk to the disk
+  fs.writeFile(chunkPath, chunk, (err) => {
+    if (err) {
+      return res.status(500).send("Failed to save chunk.");
+    }
+
+    if (parseInt(chunkIndex) + 1 === parseInt(totalChunks)) {
+      // All chunks received, merge them
+      const finalFilePath = path.join(__dirname, "uploads", fileName);
+      const writeStream = fs.createWriteStream(finalFilePath);
+
+      for (let i = 0; i < totalChunks; i++) {
+        const partPath = path.join(__dirname, "uploads", `${fileName}.part${i}`);
+        const data = fs.readFileSync(partPath);
+        writeStream.write(data);
+        fs.unlinkSync(partPath); // Delete the chunk file
+      }
+
+      writeStream.end(() => {
+        res.send(`File uploaded successfully: ${fileName}`);
+      });
+    } else {
+      res.send(`Chunk ${chunkIndex} uploaded successfully.`);
+    }
+  });
+});
 
 // Serve static files from the uploads directory
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Create an upload route
-app.post("/upload", upload.single("file"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).send("No file uploaded.");
-  }
-  res.send(`File uploaded successfully: ${req.file.originalname}`);
-});
-
-// Start the server
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
