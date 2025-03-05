@@ -24,7 +24,11 @@ const PORT = process.env.PORT || 8000;
 const MONGODB_URI = process.env.MONGODB_URI;
 
 // Enable CORS
-app.use(cors());
+app.use(cors(
+  {
+    "origin" : "*"
+  }
+));
 
 // Development logging - simplified for Vercel compatibility
 if (process.env.NODE_ENV === "development") {
